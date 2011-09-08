@@ -21,20 +21,19 @@ package org.apache.maven.plugin.deploy;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.deployer.ArtifactDeploymentException;
-import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.metadata.ArtifactMetadata;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.layout.ArtifactRepositoryLayout;
-import org.apache.maven.artifact.resolver.ArtifactResolutionException;
 import org.apache.maven.artifact.resolver.ArtifactResolver;
-import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.artifact.ProjectArtifactMetadata;
 
 import java.io.File;
-import java.util.*;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,6 +46,7 @@ import java.util.regex.Pattern;
  * @goal deploy
  * @phase deploy
  * @threadSafe
+ * @requiresDependencyResolution
  */
 public class DeployMojo
         extends AbstractDeployMojo {
@@ -162,9 +162,9 @@ public class DeployMojo
             }
         }
 
-        List toBeDeployedArtifacts = new LinkedList();;
+        List toBeDeployedArtifacts = new LinkedList();
         if (true == deployDependencies) {
-            toBeDeployedArtifacts.addAll(project.getDependencyArtifacts());
+            toBeDeployedArtifacts.addAll(project.getArtifacts());
         }
         toBeDeployedArtifacts.add(artifact);
 
@@ -176,8 +176,7 @@ public class DeployMojo
                             "pom");
             try {
                 artifactResolver.resolve(thePomArtifact, this.remoteRepos, this.local);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 new MojoExecutionException(e.getMessage(), e);
             }
             pomFile = thePomArtifact.getFile();
