@@ -31,6 +31,7 @@ import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.artifact.ProjectArtifactMetadata;
 
 import java.io.File;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -80,6 +81,12 @@ public class DeployMojo
      */
     private File pomFile;
 
+    /**
+     * @parameter default-value=false
+     * @required
+     * @readonly
+     */
+    private boolean deployDependencies;
 
     /**
      * Specifies an alternative repository to which the project artifacts should be deployed ( other
@@ -127,7 +134,12 @@ public class DeployMojo
             }
         }
 
-        Set toBeDeployedArtifacts = project.getDependencyArtifacts();
+        Set toBeDeployedArtifacts;
+        if (true == deployDependencies) {
+            toBeDeployedArtifacts = project.getDependencyArtifacts();
+        } else {
+            toBeDeployedArtifacts = new HashSet();
+        }
         toBeDeployedArtifacts.add(artifact);
 
         for (Object iter : toBeDeployedArtifacts) {
