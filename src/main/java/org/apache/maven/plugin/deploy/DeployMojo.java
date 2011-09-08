@@ -21,9 +21,12 @@ package org.apache.maven.plugin.deploy;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.deployer.ArtifactDeploymentException;
+import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.metadata.ArtifactMetadata;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.layout.ArtifactRepositoryLayout;
+import org.apache.maven.artifact.resolver.ArtifactResolutionException;
+import org.apache.maven.artifact.resolver.ArtifactResolver;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -31,10 +34,7 @@ import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.artifact.ProjectArtifactMetadata;
 
 import java.io.File;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -113,6 +113,34 @@ public class DeployMojo
      */
     private boolean skip;
 
+    /**
+     * Used to look up Artifacts in the remote repository.
+     *
+     * @parameter expression=
+     * "${component.org.apache.maven.artifact.resolver.ArtifactResolver}"
+     * @required
+     * @readonly
+     */
+    protected ArtifactResolver artifactResolver;
+
+    /**
+     * List of Remote Repositories used by the resolver
+     *
+     * @parameter expression="${project.remoteArtifactRepositories}"
+     * @readonly
+     * @required
+     */
+    protected java.util.List remoteRepos;
+
+    /**
+     * Location of the local repository.
+     *
+     * @parameter expression="${localRepository}"
+     * @readonly
+     * @required
+     */
+    protected org.apache.maven.artifact.repository.ArtifactRepository local;
+
     public void execute()
             throws MojoExecutionException, MojoFailureException {
         if (skip) {
@@ -134,17 +162,25 @@ public class DeployMojo
             }
         }
 
-        Set toBeDeployedArtifacts;
+        List toBeDeployedArtifacts = new LinkedList();;
         if (true == deployDependencies) {
-            toBeDeployedArtifacts = project.getDependencyArtifacts();
-        } else {
-            toBeDeployedArtifacts = new HashSet();
+            toBeDeployedArtifacts.addAll(project.getDependencyArtifacts());
         }
         toBeDeployedArtifacts.add(artifact);
 
         for (Object iter : toBeDeployedArtifacts) {
             Artifact artifactTBD = (Artifact) iter;
 
+            Artifact thePomArtifact = artifactFactory
+                    .createArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(), artifactTBD.getVersion(), "",
+                            "pom");
+            try {
+                artifactResolver.resolve(thePomArtifact, this.remoteRepos, this.local);
+            }
+            catch (Exception e) {
+                new MojoExecutionException(e.getMessage(), e);
+            }
+            pomFile = thePomArtifact.getFile();
 
             // Deploy the POM
             boolean isPomArtifact = "pom".equals(packaging);
