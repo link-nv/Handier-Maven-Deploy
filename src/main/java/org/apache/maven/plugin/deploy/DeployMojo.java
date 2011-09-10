@@ -72,13 +72,6 @@ public class DeployMojo
     private MavenProject project;
 
     /**
-     * @parameter default-value="${project.artifact}"
-     * @required
-     * @readonly
-     */
-    private Artifact artifact;
-
-    /**
      * @parameter default-value="${project.packaging}"
      * @required
      * @readonly
@@ -169,7 +162,18 @@ public class DeployMojo
      */
     private ModelInheritanceAssembler modelInheritanceAssembler;
 
-    public void execute()
+    public void execute() throws MojoExecutionException, MojoFailureException {
+
+        Set<Artifact> toBeDeployedArtifacts = new HashSet<Artifact>();
+        if (true == deployDependencies) {
+            toBeDeployedArtifacts.addAll(project.getArtifacts());
+        }
+        toBeDeployedArtifacts.add(project.getArtifact());
+
+        executeWithArtifacts(toBeDeployedArtifacts);
+    }
+
+    public void executeWithArtifacts(Set<Artifact> toBeDeployedArtifacts)
             throws MojoExecutionException, MojoFailureException {
         if (skip) {
             getLog().info("Skipping artifact deployment");
@@ -190,14 +194,10 @@ public class DeployMojo
             }
         }
 
-        List toBeDeployedArtifacts = new LinkedList();
-        if (true == deployDependencies) {
-            toBeDeployedArtifacts.addAll(project.getArtifacts());
-        }
-        toBeDeployedArtifacts.add(artifact);
-
         for (Object iter : toBeDeployedArtifacts) {
             Artifact artifactTBD = (Artifact) iter;
+
+            getLog().debug("Deploying artifact: " + artifactTBD.getGroupId() + ":" + artifactTBD.getArtifactId());
 
             Artifact thePomArtifact = artifactFactory
                     .createArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(), artifactTBD.getVersion(), "",
@@ -420,7 +420,7 @@ public class DeployMojo
      * @throws MojoExecutionException if the POM can't be parsed.
      */
 
-    MavenProject readBareProject(final File file) {
+    protected MavenProject readBareProject(final File file) {
 
         MavenXpp3Reader reader = new MavenXpp3Reader();
         Model model = null;
