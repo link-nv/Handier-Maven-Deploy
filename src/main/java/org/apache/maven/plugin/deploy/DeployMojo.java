@@ -34,6 +34,7 @@ import org.apache.maven.model.io.xpp3.MavenXpp3Writer;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.MavenProjectBuilder;
 import org.apache.maven.project.artifact.ProjectArtifactMetadata;
 import org.apache.maven.project.inheritance.ModelInheritanceAssembler;
 import org.codehaus.plexus.util.IOUtil;
@@ -161,6 +162,16 @@ public class DeployMojo
      * @readonly
      */
     private ModelInheritanceAssembler modelInheritanceAssembler;
+
+    /**
+     * Used to create a model
+     *
+     * @parameter expression=
+     * "${component.org.apache.maven.project.MavenProjectBuilder}"
+     * @required
+     * @readonly
+     */
+    protected MavenProjectBuilder mavenProjectBuilder;
 
     public void execute() throws MojoExecutionException, MojoFailureException {
 
@@ -307,132 +318,118 @@ public class DeployMojo
     }
 
     private File filterPom(Artifact thePomArtifact) throws MojoExecutionException {
+
+        MavenProject bareProject;
+
         // get the unresolved project by reading the file
-        MavenProject bareProject = readBareProject(thePomArtifact.getFile());
-
-        MavenProject parentProject = bareProject.getParent();
-
-        Stack hierarchy = new Stack();
-        hierarchy.push(bareProject);
+        try {
+            bareProject = mavenProjectBuilder.buildFromRepository(thePomArtifact, this.remoteRepos, this.local);
 
 
-        while (parentProject != null) {
+            MavenProject parentProject = bareProject.getParent();
 
+            Stack hierarchy = new Stack();
+            hierarchy.push(bareProject);
+
+
+            while (parentProject != null) {
+
+                try {
+                    // get Maven to resolve the parent artifact (download if
+                    // needed)
+                    Artifact theParentPomArtifact = artifactFactory
+                            .createArtifact(parentProject.getGroupId(), parentProject.getArtifactId(), parentProject.getVersion(), "",
+                                    "pom");
+
+                    artifactResolver.resolve(theParentPomArtifact, this.remoteRepos, this.local);
+
+                    // get the file from the local repository and read the bare
+                    // project
+                    File parentPomFile = theParentPomArtifact.getFile();
+
+                    MavenProject parentParentProject = parentProject.getParent();
+
+                    parentProject = mavenProjectBuilder.buildFromRepository(theParentPomArtifact, this.remoteRepos, this.local);
+
+                    hierarchy.push(parentProject);
+
+                    parentProject = parentParentProject;
+                } catch (ArtifactResolutionException e) {
+                    getLog().error("can't resolve parent pom", e);
+                } catch (ArtifactNotFoundException e) {
+                    getLog().error("can't resolve parent pom", e);
+                }
+            }
+
+            // merge each model starting with the oldest ancestors
+            MavenProject currentParent = (MavenProject) hierarchy.pop();
+            MavenProject currentProject = currentParent;
+            while (hierarchy.size() != 0) {
+                currentProject = (MavenProject) hierarchy.pop();
+                modelInheritanceAssembler.assembleModelInheritance(currentProject.getModel(), currentParent.getModel());
+                currentParent = currentProject;
+            }
+
+            Model currentModel = currentProject.getModel();
+
+            currentModel.setParent(null);
+            currentModel.setBuild(null);
+            currentModel.setCiManagement(null);
+            currentModel.setContributors(null);
+            currentModel.setCiManagement(null);
+            currentModel.setDevelopers(null);
+            currentModel.setIssueManagement(null);
+            currentModel.setMailingLists(null);
+            currentModel.setProfiles(null);
+            currentModel.setModules(null);
+            currentModel.setDistributionManagement(null);
+            currentModel.setPluginRepositories(null);
+            currentModel.setReporting(null);
+            currentModel.setReports(null);
+            currentModel.setRepositories(null);
+            currentModel.setScm(null);
+            currentModel.setUrl(null);
+
+            // use the resolved dependencies instead of the bare ones
+            List<Dependency> goodDeps = new ArrayList<Dependency>();
+            for (Object obj : bareProject.getDependencies()) {
+                Dependency dep = (Dependency) obj;
+
+                String scope = dep.getScope();
+
+                /* only add dependencies that
+                * have no scope
+                * (dependencies in a pom file have no default scope)
+                * or have a different scope than test
+                * isn't there a constant for "test"?
+                */
+                if (null == scope || !scope.equals("test")) {
+                    goodDeps.add(dep);
+                }
+            }
+            currentModel.setDependencies(goodDeps);
+
+            currentModel.setDependencyManagement(null);
+            currentModel.setProperties(null);
+
+            // spit the merged model to the output file.
+            Writer fw = null;
             try {
-                // get Maven to resolve the parent artifact (download if
-                // needed)
-                Artifact theParentPomArtifact = artifactFactory
-                        .createArtifact(parentProject.getGroupId(), parentProject.getArtifactId(), parentProject.getVersion(), "",
-                                "pom");
+                File tempFile = File.createTempFile("mvndeploy", ".pom");
+                tempFile.deleteOnExit();
 
-                artifactResolver.resolve(theParentPomArtifact, this.remoteRepos, this.local);
+                fw = WriterFactory.newXmlWriter(tempFile);
+                new MavenXpp3Writer().write(fw, currentModel);
 
-                // get the file from the local repository and read the bare
-                // project
-                File parentPomFile = theParentPomArtifact.getFile();
-
-                MavenProject parentParentProject = parentProject.getParent();
-
-                parentProject = readBareProject(parentPomFile);
-
-                hierarchy.push(parentProject);
-
-                parentProject = parentParentProject;
-            } catch (ArtifactResolutionException e) {
-                getLog().error("can't resolve parent pom", e);
-            } catch (ArtifactNotFoundException e) {
-                getLog().error("can't resolve parent pom", e);
+                return tempFile;
+            } catch (IOException e) {
+                throw new MojoExecutionException("Error writing temporary pom file: " + e.getMessage(), e);
+            } finally {
+                IOUtil.close(fw);
             }
+        } catch (Exception e) {
+            throw new MojoExecutionException(e.getMessage(), e);
         }
-
-        // merge each model starting with the oldest ancestors
-        MavenProject currentParent = (MavenProject) hierarchy.pop();
-        MavenProject currentProject = currentParent;
-        while (hierarchy.size() != 0) {
-            currentProject = (MavenProject) hierarchy.pop();
-            modelInheritanceAssembler.assembleModelInheritance(currentProject.getModel(), currentParent.getModel());
-            currentParent = currentProject;
-        }
-
-        Model currentModel = currentProject.getModel();
-
-        currentModel.setParent(null);
-        currentModel.setBuild(null);
-        currentModel.setCiManagement(null);
-        currentModel.setContributors(null);
-        currentModel.setCiManagement(null);
-        currentModel.setDevelopers(null);
-        currentModel.setIssueManagement(null);
-        currentModel.setMailingLists(null);
-        currentModel.setProfiles(null);
-        currentModel.setModules(null);
-        currentModel.setDistributionManagement(null);
-        currentModel.setPluginRepositories(null);
-        currentModel.setReporting(null);
-        currentModel.setReports(null);
-        currentModel.setRepositories(null);
-        currentModel.setScm(null);
-        currentModel.setUrl(null);
-
-        // use the resolved dependencies instead of the bare ones
-        List<Dependency> goodDeps = new ArrayList<Dependency>();
-        for (Object obj : bareProject.getDependencies()) {
-            Dependency dep = (Dependency) obj;
-
-            String scope = dep.getScope();
-
-            /* only add dependencies that
-            * have no scope
-            * (dependencies in a pom file have no default scope)
-            * or have a different scope than test
-            * isn't there a constant for "test"?
-            */
-            if (null == scope || !scope.equals("test")) {
-                goodDeps.add(dep);
-            }
-        }
-        currentModel.setDependencies(goodDeps);
-
-        currentModel.setDependencyManagement(null);
-        currentModel.setProperties(null);
-
-        // spit the merged model to the output file.
-        Writer fw = null;
-        try {
-            File tempFile = File.createTempFile("mvndeploy", ".pom");
-            tempFile.deleteOnExit();
-
-            fw = WriterFactory.newXmlWriter(tempFile);
-            new MavenXpp3Writer().write(fw, currentModel);
-
-            return tempFile;
-        } catch (IOException e) {
-            throw new MojoExecutionException("Error writing temporary pom file: " + e.getMessage(), e);
-        } finally {
-            IOUtil.close(fw);
-        }
-    }
-
-    /**
-     * Read the mavenProject without resolving any inherited settings.
-     *
-     * @return the MavenProject for the project's POM
-     * @throws MojoExecutionException if the POM can't be parsed.
-     */
-
-    protected MavenProject readBareProject(final File file) {
-
-        MavenXpp3Reader reader = new MavenXpp3Reader();
-        Model model = null;
-        try {
-            model = reader.read(new FileReader(file));
-        } catch (IOException e) {
-            getLog().error("can't read pom file", e);
-        } catch (XmlPullParserException e) {
-            getLog().error("can't read pom file", e);
-        }
-
-        return new MavenProject(model);
     }
 
 }

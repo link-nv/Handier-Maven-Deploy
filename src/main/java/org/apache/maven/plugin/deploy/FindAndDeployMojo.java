@@ -42,16 +42,6 @@ public class FindAndDeployMojo extends DeployMojo {
     private String version;
 
     /**
-     * Used to create a model
-     *
-     * @parameter expression=
-     * "${component.org.apache.maven.project.MavenProjectBuilder}"
-     * @required
-     * @readonly
-     */
-    private MavenProjectBuilder mavenProjectBuilder;
-
-    /**
      * Used to look up Artifacts in the remote repository.
      *
      * @component
@@ -66,8 +56,7 @@ public class FindAndDeployMojo extends DeployMojo {
 
             artifactResolver.resolve(target, this.remoteRepos, this.local);
 
-            //MavenProject project = readBareProject(target.getFile());
-            MavenProject project = mavenProjectBuilder.build(target.getFile(), this.local, null);
+            MavenProject project = mavenProjectBuilder.buildFromRepository(target, this.remoteRepos, this.local);
 
             Set<Artifact> artifactsTBR = project.createArtifacts(this.factory,Artifact.SCOPE_TEST, new ScopeArtifactFilter(Artifact.SCOPE_TEST));
 
