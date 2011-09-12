@@ -23,3 +23,8 @@ New feature: deploy:find-and-deploy
 This new mojo reads an artifactId, groupId and version from the commandline and looks for the artifact in your remote repositories. Once found it deploys it to your repository.
 
 This mojo is useful to import artifacts in your own repository without using a repository manager.
+
+Building the plugin
+-------------------
+The unit tests are broken, so ...
+mvn -Dmaven.test.skip=true clean install
