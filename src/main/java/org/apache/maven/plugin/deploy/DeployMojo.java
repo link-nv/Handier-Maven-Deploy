@@ -87,14 +87,14 @@ public class DeployMojo
     private File pomFile;
 
     /**
-     * @parameter default-value=false
+     * @parameter default-value=false expression="${deployDependencies}"
      * @required
      * @readonly
      */
     private boolean deployDependencies;
 
     /**
-     * @parameter default-value=false
+     * @parameter default-value=false expression="${filterPom}"
      * @required
      * @readonly
      */
