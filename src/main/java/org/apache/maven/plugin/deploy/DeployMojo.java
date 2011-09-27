@@ -89,14 +89,12 @@ public class DeployMojo
     /**
      * @parameter default-value=false expression="${deployDependencies}"
      * @required
-     * @readonly
      */
     private boolean deployDependencies;
 
     /**
      * @parameter default-value=false expression="${filterPom}"
      * @required
-     * @readonly
      */
     private boolean filterPom;
 
