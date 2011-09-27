@@ -23,23 +23,26 @@ public class FindAndDeployMojo extends DeployMojo {
     /**
      * @parameter expression="${groupId}"
      * @required
-     * @readonly
      */
     private String groupId;
 
     /**
      * @parameter expression="${artifactId}"
      * @required
-     * @readonly
      */
     private String artifactId;
 
     /**
      * @parameter expression="${version}"
      * @required
-     * @readonly
      */
     private String version;
+
+    /**
+     * @parameter expression="${type}"
+     * @required
+     */
+    private String type;
 
     /**
      * Used to look up Artifacts in the remote repository.
@@ -52,7 +55,7 @@ public class FindAndDeployMojo extends DeployMojo {
         try {
             Artifact target = artifactFactory
                     .createArtifact(groupId, artifactId, version, "",
-                            "pom");
+                            type);
 
             artifactResolver.resolve(target, this.remoteRepos, this.local);
 
