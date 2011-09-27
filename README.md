@@ -24,7 +24,24 @@ This new mojo reads an artifactId, groupId and version from the commandline and 
 
 This mojo is useful to import artifacts in your own repository without using a repository manager.
 
+Using the plugin
+----------------
+Configure this as one of your repositories:
+```
+<repository>
+   <id>handier.deploy</id>
+   <url>https://raw.github.com/dhouthoo/Handier-Maven-Deploy/master/repository</url>
+</repository>
+```
+
+And add this to your plugins:
+```
+<plugin>
+   <artifactId>maven-deploy-plugin</artifactId>
+   <version>2.7-2l</version>
+</plugin>
+```
+
 Building the plugin
 -------------------
-The unit tests are broken, so ...
-mvn -Dmaven.test.skip=true clean install
+mvn clean install
