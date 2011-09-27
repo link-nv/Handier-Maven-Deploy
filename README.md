@@ -28,18 +28,18 @@ Using the plugin
 ----------------
 Configure this as one of your repositories:
 ```
-<repository>
-   <id>handier.deploy</id>
-   <url>https://raw.github.com/dhouthoo/Handier-Maven-Deploy/master/repository</url>
-</repository>
+    <repository>
+        <id>handier.deploy</id>
+        <url>https://raw.github.com/dhouthoo/Handier-Maven-Deploy/master/repository</url>
+    </repository>
 ```
 
 And add this to your plugins:
 ```
-<plugin>
-   <artifactId>maven-deploy-plugin</artifactId>
-   <version>2.7-2l</version>
-</plugin>
+    <plugin>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <version>2.7-2l</version>
+    </plugin>
 ```
 
 Building the plugin
