@@ -30,7 +30,7 @@ Configure this as one of your repositories:
 
     <repository>
         <id>handier.deploy</id>
-        <url>https://raw.github.com/dhouthoo/Handier-Maven-Deploy/master/repository</url>
+        <url>https://raw.github.com/link-nv/Handier-Maven-Deploy/master/repository</url>
     </repository>
 
 And add this to your plugins:
