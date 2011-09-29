@@ -1,0 +1,3 @@
+[submodule "maven-repository"]
+	path = maven-repository
+	url = git://github.com/link-nv/maven-repository
