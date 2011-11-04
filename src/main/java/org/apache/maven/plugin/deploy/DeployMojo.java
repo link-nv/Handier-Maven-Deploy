@@ -70,7 +70,7 @@ public class DeployMojo
      * @required
      * @readonly
      */
-    private MavenProject project;
+    protected MavenProject project;
 
     /**
      * @parameter default-value="${project.packaging}"
