@@ -20,29 +20,28 @@ package org.apache.maven.plugin.deploy;
  */
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.DefaultArtifact;
 import org.apache.maven.artifact.deployer.ArtifactDeploymentException;
-import org.apache.maven.artifact.metadata.ArtifactMetadata;
+import org.apache.maven.artifact.handler.ArtifactHandler;
+import org.apache.maven.artifact.handler.manager.ArtifactHandlerManager;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.layout.ArtifactRepositoryLayout;
-import org.apache.maven.artifact.resolver.ArtifactNotFoundException;
-import org.apache.maven.artifact.resolver.ArtifactResolutionException;
-import org.apache.maven.artifact.resolver.ArtifactResolver;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.lifecycle.LifecycleExecutionException;
+import org.apache.maven.lifecycle.internal.LifecycleDependencyResolver;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
-import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 import org.apache.maven.model.io.xpp3.MavenXpp3Writer;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
-import org.apache.maven.project.MavenProjectBuilder;
-import org.apache.maven.project.artifact.ProjectArtifactMetadata;
-import org.apache.maven.project.inheritance.ModelInheritanceAssembler;
+import org.apache.maven.project.ProjectBuilder;
+import org.apache.maven.project.ProjectBuildingRequest;
 import org.codehaus.plexus.util.IOUtil;
 import org.codehaus.plexus.util.WriterFactory;
-import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.*;
@@ -73,6 +72,13 @@ public class DeployMojo
     protected MavenProject project;
 
     /**
+     * @parameter default-value="${session}"
+     * @required
+     * @readonly
+     */
+    protected MavenSession session;
+
+    /**
      * @parameter default-value="${project.packaging}"
      * @required
      * @readonly
@@ -90,7 +96,7 @@ public class DeployMojo
      * @parameter default-value=false expression="${deployDependencies}"
      * @required
      */
-    private boolean deployDependencies;
+    protected boolean deployDependencies;
 
     /**
      * @parameter default-value=false expression="${filterPom}"
@@ -127,11 +133,11 @@ public class DeployMojo
      * Used to look up Artifacts in the remote repository.
      *
      * @parameter expression=
-     * "${component.org.apache.maven.artifact.resolver.ArtifactResolver}"
+     * "${component.org.apache.maven.lifecycle.internal.LifecycleDependencyResolver}"
      * @required
      * @readonly
      */
-    protected ArtifactResolver artifactResolver;
+    protected LifecycleDependencyResolver lcdResolver;
 
     /**
      * List of Remote Repositories used by the resolver
@@ -152,38 +158,43 @@ public class DeployMojo
     protected org.apache.maven.artifact.repository.ArtifactRepository local;
 
     /**
-     * Used to look up overlay the parent models on the project's model.
+     * artifact handling.
      *
-     * @parameter expression=
-     * "${component.org.apache.maven.project.inheritance.ModelInheritanceAssembler}"
-     * @required
+     * @parameter expression="${component.org.apache.maven.artifact.handler.manager.ArtifactHandlerManager}"
      * @readonly
+     * @required
      */
-    private ModelInheritanceAssembler modelInheritanceAssembler;
+    protected ArtifactHandlerManager handlerManager;
 
     /**
      * Used to create a model
      *
      * @parameter expression=
-     * "${component.org.apache.maven.project.MavenProjectBuilder}"
+     * "${component.org.apache.maven.project.ProjectBuilder}"
      * @required
      * @readonly
      */
-    protected MavenProjectBuilder mavenProjectBuilder;
+    protected ProjectBuilder mavenProjectBuilder;
 
     public void execute() throws MojoExecutionException, MojoFailureException {
 
+        // create a selection of artifacts that need to be deployed
         Set<Artifact> toBeDeployedArtifacts = new HashSet<Artifact>();
         if (true == deployDependencies) {
             toBeDeployedArtifacts.addAll(project.getArtifacts());
         }
         toBeDeployedArtifacts.add(project.getArtifact());
 
-        executeWithArtifacts(toBeDeployedArtifacts);
+        // .. and then deploy them, easy right?
+        try {
+            executeWithArtifacts(toBeDeployedArtifacts);
+        } catch (LifecycleExecutionException e) {
+            throw new MojoExecutionException("Error while resolving artifacts", e);
+        }
     }
 
     public void executeWithArtifacts(Set<Artifact> toBeDeployedArtifacts)
-            throws MojoExecutionException, MojoFailureException {
+            throws MojoExecutionException, MojoFailureException, LifecycleExecutionException {
         if (skip) {
             getLog().info("Skipping artifact deployment");
             return;
@@ -203,36 +214,27 @@ public class DeployMojo
             }
         }
 
+        Set<String> scopes = new HashSet<String>();
+        scopes.add(Artifact.SCOPE_RUNTIME);
+        scopes.add(Artifact.SCOPE_COMPILE);
+        scopes.add(Artifact.SCOPE_PROVIDED);
+        lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, true, toBeDeployedArtifacts);
+
         for (Object iter : toBeDeployedArtifacts) {
+
             Artifact artifactTBD = (Artifact) iter;
 
-            getLog().debug("Deploying artifact: " + artifactTBD.getGroupId() + ":" + artifactTBD.getArtifactId());
+            getLog().debug("Deploying artifact: " + artifactTBD.getId());
 
-            Artifact thePomArtifact = artifactFactory
-                    .createArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(), artifactTBD.getVersion(), "",
-                            "pom");
-            try {
-                artifactResolver.resolve(thePomArtifact, this.remoteRepos, this.local);
-            } catch (Exception e) {
-                throw new MojoExecutionException(e.getMessage(), e);
-            }
-
-            if (true == filterPom) {
-                pomFile = filterPom(thePomArtifact);
-            }
+            Artifact thePomArtifact = new DefaultArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(),
+                    artifactTBD.getVersion(), "", "pom", "", new PomArtifactHandler());
             pomFile = thePomArtifact.getFile();
+            if (filterPom) {
+                pomFile = filterPom(thePomArtifact);
+                thePomArtifact.setFile(pomFile);
+            }
 
-
-            // Deploy the POM
             boolean isPomArtifact = "pom".equals(packaging);
-            if (!isPomArtifact) {
-                ArtifactMetadata metadata = new ProjectArtifactMetadata(artifactTBD, pomFile);
-                artifactTBD.addMetadata(metadata);
-            }
-
-            if (updateReleaseInfo) {
-                artifactTBD.setRelease(true);
-            }
 
             try {
                 if (isPomArtifact) {
@@ -245,10 +247,11 @@ public class DeployMojo
                     } else if (!attachedArtifacts.isEmpty()) {
                         getLog().info("No primary artifact to deploy, deploying attached artifacts instead.");
 
-                        Artifact pomArtifact =
-                                artifactFactory.createProjectArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(),
-                                        artifactTBD.getBaseVersion());
+                        Artifact pomArtifact = new DefaultArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(),
+                                artifactTBD.getVersion(), "", "pom", "", new PomArtifactHandler());
+
                         pomArtifact.setFile(pomFile);
+
                         if (updateReleaseInfo) {
                             pomArtifact.setRelease(true);
                         }
@@ -268,12 +271,11 @@ public class DeployMojo
 
                     deploy(attached.getFile(), attached, repo, getLocalRepository());
                 }
-                if (true == filterPom) {
-                    pomFile = filterPom(thePomArtifact);
+                if (filterPom) {
                     deploy(pomFile, thePomArtifact, repo, getLocalRepository());
                 }
             } catch (ArtifactDeploymentException e) {
-                throw new MojoExecutionException(e.getMessage(), e);
+                throw new MojoExecutionException("Failed to deploy artifact", e);
             }
         }
     }
@@ -316,59 +318,15 @@ public class DeployMojo
     }
 
     private File filterPom(Artifact thePomArtifact) throws MojoExecutionException {
-
-        MavenProject bareProject;
-
-        // get the unresolved project by reading the file
         try {
-            bareProject = mavenProjectBuilder.buildFromRepository(thePomArtifact, this.remoteRepos, this.local);
+            // first build a project from the pom artifact
+            ProjectBuildingRequest req = new DefaultProjectBuildingRequest();
+            req.setLocalRepository(this.local);
+            req.setRemoteRepositories(this.remoteRepos);
+            MavenProject bareProject = mavenProjectBuilder.build(thePomArtifact, req).getProject();
 
-
-            MavenProject parentProject = bareProject.getParent();
-
-            Stack hierarchy = new Stack();
-            hierarchy.push(bareProject);
-
-
-            while (parentProject != null) {
-
-                try {
-                    // get Maven to resolve the parent artifact (download if
-                    // needed)
-                    Artifact theParentPomArtifact = artifactFactory
-                            .createArtifact(parentProject.getGroupId(), parentProject.getArtifactId(), parentProject.getVersion(), "",
-                                    "pom");
-
-                    artifactResolver.resolve(theParentPomArtifact, this.remoteRepos, this.local);
-
-                    // get the file from the local repository and read the bare
-                    // project
-                    File parentPomFile = theParentPomArtifact.getFile();
-
-                    MavenProject parentParentProject = parentProject.getParent();
-
-                    parentProject = mavenProjectBuilder.buildFromRepository(theParentPomArtifact, this.remoteRepos, this.local);
-
-                    hierarchy.push(parentProject);
-
-                    parentProject = parentParentProject;
-                } catch (ArtifactResolutionException e) {
-                    getLog().error("can't resolve parent pom", e);
-                } catch (ArtifactNotFoundException e) {
-                    getLog().error("can't resolve parent pom", e);
-                }
-            }
-
-            // merge each model starting with the oldest ancestors
-            MavenProject currentParent = (MavenProject) hierarchy.pop();
-            MavenProject currentProject = currentParent;
-            while (hierarchy.size() != 0) {
-                currentProject = (MavenProject) hierarchy.pop();
-                modelInheritanceAssembler.assembleModelInheritance(currentProject.getModel(), currentParent.getModel());
-                currentParent = currentProject;
-            }
-
-            Model currentModel = currentProject.getModel();
+            // get the model and start filtering useless stuff
+            Model currentModel = bareProject.getModel();
 
             currentModel.setParent(null);
             currentModel.setBuild(null);
@@ -388,20 +346,13 @@ public class DeployMojo
             currentModel.setScm(null);
             currentModel.setUrl(null);
 
-            // use the resolved dependencies instead of the bare ones
             List<Dependency> goodDeps = new ArrayList<Dependency>();
             for (Object obj : bareProject.getDependencies()) {
                 Dependency dep = (Dependency) obj;
 
                 String scope = dep.getScope();
 
-                /* only add dependencies that
-                * have no scope
-                * (dependencies in a pom file have no default scope)
-                * or have a different scope than test
-                * isn't there a constant for "test"?
-                */
-                if (null == scope || !scope.equals("test")) {
+                if (null == scope || !scope.equals(Artifact.SCOPE_TEST)) {
                     goodDeps.add(dep);
                 }
             }
@@ -427,6 +378,39 @@ public class DeployMojo
             }
         } catch (Exception e) {
             throw new MojoExecutionException(e.getMessage(), e);
+        }
+
+
+    }
+
+    static class PomArtifactHandler
+            implements ArtifactHandler {
+        public String getClassifier() {
+            return null;
+        }
+
+        public String getDirectory() {
+            return null;
+        }
+
+        public String getExtension() {
+            return "pom";
+        }
+
+        public String getLanguage() {
+            return "none";
+        }
+
+        public String getPackaging() {
+            return "pom";
+        }
+
+        public boolean isAddedToClasspath() {
+            return false;
+        }
+
+        public boolean isIncludesDependencies() {
+            return false;
         }
     }
 

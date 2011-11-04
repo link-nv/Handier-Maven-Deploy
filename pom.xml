@@ -54,7 +54,7 @@ under the License.
     </distributionManagement>
 
     <properties>
-        <mavenVersion>2.2.1</mavenVersion>
+        <mavenVersion>3.0.3</mavenVersion>
     </properties>
 
     <dependencies>
@@ -65,7 +65,7 @@ under the License.
         </dependency>
         <dependency>
             <groupId>org.apache.maven</groupId>
-            <artifactId>maven-project</artifactId>
+            <artifactId>maven-core</artifactId>
             <version>${mavenVersion}</version>
         </dependency>
         <dependency>
@@ -76,6 +76,11 @@ under the License.
         <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-artifact</artifactId>
+            <version>${mavenVersion}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-compat</artifactId>
             <version>${mavenVersion}</version>
         </dependency>
         <dependency>

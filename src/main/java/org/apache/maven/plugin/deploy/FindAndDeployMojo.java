@@ -55,64 +55,31 @@ public class FindAndDeployMojo extends DeployMojo {
     private String type;
 
     /**
-     * Used to look up Artifacts in the remote repository.
-     *
-     * @component
-     */
-    protected ArtifactFactory factory;
-
-    /**
-     * Used to look up Artifacts in the remote repository.
+     * artifact handling
      *
      * @component
      */
     protected ArtifactHandler handler;
 
-    /**
-     * Used to look up Artifacts in the remote repository.
-     *
-     * @component
-     */
-    protected ArtifactCollector collector;
-
-    /**
-     * Used to look up Artifacts in the remote repository.
-     *
-     * @component
-     */
-    protected ArtifactMetadataSource metadataSource;
-
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
-
-            Artifact artifact = artifactFactory.createBuildArtifact( project.getGroupId(), project.getArtifactId(),
-                                                                 project.getVersion(), project.getPackaging() );
 
             VersionRange vrange = VersionRange.createFromVersionSpec(version);
             Artifact target = new DefaultArtifact(groupId, artifactId, vrange, Artifact.SCOPE_RUNTIME, type, "", handler);
 
-            project.setDependencyArtifacts(Collections.singleton(target));
-            project.resolveActiveArtifacts();
+            Set<String> scopes = Collections.singleton(Artifact.SCOPE_RUNTIME);
+            lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, true, Collections.singleton(target));
 
-            ArtifactResolutionResult result = artifactResolver.resolveTransitively(project.getDependencyArtifacts(),
-                    artifact,
-                    project.getManagedVersionMap(),
-                    this.local,
-                    this.remoteRepos,
-                    metadataSource, new DummyArtifactFilter());
-            Set resolvedArtifacts = result.getArtifacts();
+            Set deps = project.getDependencyArtifacts();
+            deps.add(target);
+            project.setDependencyArtifacts(deps);
 
-            executeWithArtifacts(resolvedArtifacts);
+            this.deployDependencies = true;
+
+            execute();
 
         } catch (Exception e) {
             throw new MojoExecutionException(e.getMessage(), e);
-        }
-    }
-
-    public class DummyArtifactFilter implements ArtifactFilter {
-
-        public boolean include(Artifact artifact) {
-            return true;
         }
     }
 }

@@ -25,13 +25,12 @@ import java.util.Map;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.deployer.ArtifactDeployer;
 import org.apache.maven.artifact.deployer.ArtifactDeploymentException;
-import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.repository.ArtifactRepository;
-import org.apache.maven.artifact.repository.ArtifactRepositoryFactory;
 import org.apache.maven.artifact.repository.layout.ArtifactRepositoryLayout;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.repository.legacy.repository.ArtifactRepositoryFactory;
 
 /**
  * @version $Id: AbstractDeployMojo.java 1137869 2011-06-21 06:18:10Z stephenc $
@@ -43,13 +42,6 @@ public abstract class AbstractDeployMojo
      * @component
      */
     private ArtifactDeployer deployer;
-
-    /**
-     * Component used to create an artifact.
-     *
-     * @component
-     */
-    protected ArtifactFactory artifactFactory;
 
     /**
      * Component used to create a repository.
@@ -164,6 +156,7 @@ public abstract class AbstractDeployMojo
                     getLog().info(
                         "Retrying deployment attempt " + ( count + 1 ) + " of " + retryFailedDeploymentCount );
                 }
+                getLog().debug("ordering deploy of " + artifact.getId());
                 getDeployer().deploy( source, artifact, deploymentRepository, localRepository );
                 exception = null;
                 break;
