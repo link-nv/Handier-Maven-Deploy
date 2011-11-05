@@ -177,15 +177,8 @@ public class DeployMojo
     protected ProjectBuilder mavenProjectBuilder;
 
     public void execute() throws MojoExecutionException, MojoFailureException {
-
-        // create a selection of artifacts that need to be deployed
         Set<Artifact> toBeDeployedArtifacts = new HashSet<Artifact>();
-        if (true == deployDependencies) {
-            toBeDeployedArtifacts.addAll(project.getArtifacts());
-        }
         toBeDeployedArtifacts.add(project.getArtifact());
-
-        // .. and then deploy them, easy right?
         try {
             executeWithArtifacts(toBeDeployedArtifacts);
         } catch (LifecycleExecutionException e) {
@@ -214,11 +207,10 @@ public class DeployMojo
             }
         }
 
-        Set<String> scopes = new HashSet<String>();
-        scopes.add(Artifact.SCOPE_RUNTIME);
-        scopes.add(Artifact.SCOPE_COMPILE);
-        scopes.add(Artifact.SCOPE_PROVIDED);
-        lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, true, toBeDeployedArtifacts);
+        // create a selection of artifacts that need to be deployed
+        if (deployDependencies) {
+            toBeDeployedArtifacts.addAll(project.getArtifacts());
+        }
 
         for (Object iter : toBeDeployedArtifacts) {
 
@@ -262,6 +254,7 @@ public class DeployMojo
                         artifactTBD.setResolvedVersion(pomArtifact.getVersion());
                     } else {
                         String message = "The packaging for this project did not assign a file to the build artifact";
+                        System.err.println("The artifact on which we crash: " + artifactTBD.getId());
                         throw new MojoExecutionException(message);
                     }
                 }

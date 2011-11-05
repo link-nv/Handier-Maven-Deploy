@@ -4,21 +4,15 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.DefaultArtifact;
 import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.handler.ArtifactHandler;
-import org.apache.maven.artifact.metadata.ArtifactMetadataSource;
-import org.apache.maven.artifact.resolver.ArtifactCollector;
-import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
-import org.apache.maven.artifact.resolver.ResolutionListener;
-import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
-import org.apache.maven.artifact.resolver.filter.ScopeArtifactFilter;
 import org.apache.maven.artifact.versioning.VersionRange;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
-import org.apache.maven.project.MavenProjectBuilder;
+import org.apache.maven.project.ProjectBuildingRequest;
 
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.Set;
 
 /**
@@ -67,16 +61,16 @@ public class FindAndDeployMojo extends DeployMojo {
             VersionRange vrange = VersionRange.createFromVersionSpec(version);
             Artifact target = new DefaultArtifact(groupId, artifactId, vrange, Artifact.SCOPE_RUNTIME, type, "", handler);
 
-            Set<String> scopes = Collections.singleton(Artifact.SCOPE_RUNTIME);
-            lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, true, Collections.singleton(target));
-
             Set deps = project.getDependencyArtifacts();
             deps.add(target);
-            project.setDependencyArtifacts(deps);
+            project.setDependencyArtifacts(Collections.singleton(target));
 
-            this.deployDependencies = true;
+            Set<String> scopes = Collections.singleton(Artifact.SCOPE_RUNTIME);
+            lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, false, Collections.<Artifact>emptySet());
 
-            execute();
+            Set<Artifact> targets = new HashSet<Artifact>();
+            targets.add(target);
+            super.executeWithArtifacts(targets);
 
         } catch (Exception e) {
             throw new MojoExecutionException(e.getMessage(), e);
