@@ -103,6 +103,12 @@ public class DeployMojo
     private boolean filterPom;
 
     /**
+     * @parameter default-value=false expression="${failureIsAnOption}"
+     * @required
+     */
+    private boolean failureIsAnOption;
+
+    /**
      * Specifies an alternative repository to which the project artifacts should be deployed ( other
      * than those specified in &lt;distributionManagement&gt; ).
      * <br/>
@@ -179,7 +185,7 @@ public class DeployMojo
         toBeDeployedArtifacts.add(project.getArtifact());
         try {
             executeWithArtifacts(toBeDeployedArtifacts);
-        } catch (LifecycleExecutionException e) {
+        } catch (Exception e) {
             throw new MojoExecutionException("Error while resolving artifacts", e);
         }
     }
@@ -210,64 +216,75 @@ public class DeployMojo
             toBeDeployedArtifacts.addAll(project.getArtifacts());
         }
 
+        int swallowed = 0;
+
         for (Object iter : toBeDeployedArtifacts) {
-
-            Artifact artifactTBD = (Artifact) iter;
-
-            getLog().debug("Deploying artifact: " + artifactTBD.getId());
-
-            Artifact thePomArtifact = new DefaultArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(),
-                    artifactTBD.getVersion(), "", "pom", "", new PomArtifactHandler());
-            pomFile = thePomArtifact.getFile();
-            if (filterPom) {
-                pomFile = filterPom(thePomArtifact);
-                thePomArtifact.setFile(pomFile);
-            }
-
-            boolean isPomArtifact = "pom".equals(packaging);
-
             try {
-                if (isPomArtifact) {
-                    deploy(pomFile, artifactTBD, repo, getLocalRepository());
-                } else {
-                    File file = artifactTBD.getFile();
+                Artifact artifactTBD = (Artifact) iter;
 
-                    if (file != null && file.isFile()) {
-                        deploy(file, artifactTBD, repo, getLocalRepository());
-                    } else if (!attachedArtifacts.isEmpty()) {
-                        getLog().info("No primary artifact to deploy, deploying attached artifacts instead.");
+                getLog().debug("Deploying artifact: " + artifactTBD.getId());
 
-                        Artifact pomArtifact = new DefaultArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(),
-                                artifactTBD.getVersion(), "", "pom", "", new PomArtifactHandler());
-
-                        pomArtifact.setFile(pomFile);
-
-                        if (updateReleaseInfo) {
-                            pomArtifact.setRelease(true);
-                        }
-
-                        deploy(pomFile, pomArtifact, repo, getLocalRepository());
-
-                        // propagate the timestamped version to the main artifact for the attached artifacts to pick it up
-                        artifactTBD.setResolvedVersion(pomArtifact.getVersion());
-                    } else {
-                        String message = "The packaging for this project did not assign a file to the build artifact";
-                        System.err.println("The artifact on which we crash: " + artifactTBD.getId());
-                        throw new MojoExecutionException(message);
-                    }
-                }
-
-                for (Iterator i = attachedArtifacts.iterator(); i.hasNext(); ) {
-                    Artifact attached = (Artifact) i.next();
-
-                    deploy(attached.getFile(), attached, repo, getLocalRepository());
-                }
+                Artifact thePomArtifact = new DefaultArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(),
+                        artifactTBD.getVersion(), "", "pom", "", new PomArtifactHandler());
+                pomFile = thePomArtifact.getFile();
                 if (filterPom) {
-                    deploy(pomFile, thePomArtifact, repo, getLocalRepository());
+                    pomFile = filterPom(thePomArtifact);
+                    thePomArtifact.setFile(pomFile);
                 }
-            } catch (ArtifactDeploymentException e) {
-                throw new MojoExecutionException("Failed to deploy artifact", e);
+
+                boolean isPomArtifact = "pom".equals(packaging);
+
+                try {
+                    if (isPomArtifact) {
+                        deploy(pomFile, artifactTBD, repo, getLocalRepository());
+                    } else {
+                        File file = artifactTBD.getFile();
+
+                        if (file != null && file.isFile()) {
+                            deploy(file, artifactTBD, repo, getLocalRepository());
+                        } else if (!attachedArtifacts.isEmpty()) {
+                            getLog().info("No primary artifact to deploy, deploying attached artifacts instead.");
+
+                            Artifact pomArtifact = new DefaultArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(),
+                                    artifactTBD.getVersion(), "", "pom", "", new PomArtifactHandler());
+
+                            pomArtifact.setFile(pomFile);
+
+                            if (updateReleaseInfo) {
+                                pomArtifact.setRelease(true);
+                            }
+
+                            deploy(pomFile, pomArtifact, repo, getLocalRepository());
+
+                            // propagate the timestamped version to the main artifact for the attached artifacts to pick it up
+                            artifactTBD.setResolvedVersion(pomArtifact.getVersion());
+                        } else {
+                            String message = "The packaging for this project did not assign a file to the build artifact";
+                            System.err.println("The artifact on which we crash: " + artifactTBD.getId());
+                            throw new MojoExecutionException(message);
+                        }
+                    }
+
+                    for (Iterator i = attachedArtifacts.iterator(); i.hasNext(); ) {
+                        Artifact attached = (Artifact) i.next();
+
+                        deploy(attached.getFile(), attached, repo, getLocalRepository());
+                    }
+                    if (filterPom) {
+                        deploy(pomFile, thePomArtifact, repo, getLocalRepository());
+                    }
+                } catch (ArtifactDeploymentException e) {
+                    throw new MojoExecutionException("Failed to deploy artifact", e);
+                }
             }
+            catch (MojoExecutionException e) {
+                if (!failureIsAnOption) throw e;
+                swallowed++;
+            }
+        }
+        if (swallowed > 0) {
+            getLog().warn("I swallowed " + swallowed + " deployment exceptions. If you want me to fail on this please" +
+                    " unset failureIsAnOption");
         }
     }
 
