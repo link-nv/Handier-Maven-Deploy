@@ -17,6 +17,11 @@ This new configuration parameter to the deploy:deploy mojo also deploys your dep
 
 It is also useful if you want to deploy only some specific artifacts within your project to some public repo (like the SDK's for your commercial product). You can create an artifact which lists all your public artifacts as dependencies and set the deploy plugin to deployDependencies. This is handier than messing around with profiles.
 
+New feature: failureIsAnOption
+------------------------------
+
+This configuration parameter prevents the build from crashing when the artifact or a dependency fails to deploy. This can be handy when you don't want your build to fail when your repository is not available. 
+
 New feature: deploy:find-and-deploy
 -----------------------------------
 
