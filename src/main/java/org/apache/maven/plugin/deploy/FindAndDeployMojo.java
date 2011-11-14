@@ -55,7 +55,8 @@ public class FindAndDeployMojo extends DeployMojo {
         try {
 
             VersionRange vrange = VersionRange.createFromVersionSpec(version);
-            Artifact target = new DefaultArtifact(groupId, artifactId, vrange, Artifact.SCOPE_RUNTIME, type, "", handler);
+            Artifact target = new DefaultArtifact(groupId, artifactId, vrange, Artifact.SCOPE_RUNTIME,
+                    type, "", handler);
 
             Set deps = project.getDependencyArtifacts();
             deps.add(target);

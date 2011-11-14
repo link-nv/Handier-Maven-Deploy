@@ -246,7 +246,8 @@ public class DeployMojo
                         } else if (!attachedArtifacts.isEmpty()) {
                             getLog().info("No primary artifact to deploy, deploying attached artifacts instead.");
 
-                            Artifact pomArtifact = new DefaultArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(),
+                            Artifact pomArtifact = new DefaultArtifact(artifactTBD.getGroupId(),
+                                    artifactTBD.getArtifactId(),
                                     artifactTBD.getVersion(), "", "pom", "", new PomArtifactHandler());
 
                             pomArtifact.setFile(pomFile);
@@ -257,10 +258,12 @@ public class DeployMojo
 
                             deploy(pomFile, pomArtifact, repo, getLocalRepository());
 
-                            // propagate the timestamped version to the main artifact for the attached artifacts to pick it up
+                            // propagate the timestamped version to the main artifact for the attached artifacts
+                            // to pick it up
                             artifactTBD.setResolvedVersion(pomArtifact.getVersion());
                         } else {
-                            String message = "The packaging for this project did not assign a file to the build artifact";
+                            String message = "The packaging for this project did not " +
+                                    "assign a file to the build artifact";
                             System.err.println("The artifact on which we crash: " + artifactTBD.getId());
                             throw new MojoExecutionException(message);
                         }
@@ -338,7 +341,8 @@ public class DeployMojo
             getLog().debug("Filtering pom file: " + thePomArtifact.getId());
 
             // first build a project from the pom artifact
-            MavenProject bareProject = mavenProjectBuilder.build(thePomArtifact, project.getProjectBuildingRequest()).getProject();
+            MavenProject bareProject = mavenProjectBuilder.build(thePomArtifact,
+                    project.getProjectBuildingRequest()).getProject();
 
             // get the model and start filtering useless stuff
             Model currentModel = bareProject.getModel();
