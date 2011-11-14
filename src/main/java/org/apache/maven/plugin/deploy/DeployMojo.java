@@ -183,6 +183,7 @@ public class DeployMojo
     public void execute() throws MojoExecutionException, MojoFailureException {
         Set<Artifact> toBeDeployedArtifacts = new HashSet<Artifact>();
         toBeDeployedArtifacts.add(project.getArtifact());
+        getLog().debug("Deploying project: " + project.getArtifactId());
         try {
             executeWithArtifacts(toBeDeployedArtifacts);
         } catch (Exception e) {
@@ -265,11 +266,6 @@ public class DeployMojo
                         }
                     }
 
-                    for (Iterator i = attachedArtifacts.iterator(); i.hasNext(); ) {
-                        Artifact attached = (Artifact) i.next();
-
-                        deploy(attached.getFile(), attached, repo, getLocalRepository());
-                    }
                     if (filterPom) {
                         deploy(pomFile, thePomArtifact, repo, getLocalRepository());
                     }
@@ -280,6 +276,17 @@ public class DeployMojo
                 if (!failureIsAnOption) throw e;
                 swallowed++;
                 getLog().warn("failed to deploy " + ((Artifact) iter).getId() + " but continuing anyway " +
+                        "(failureIsAnOption)");
+            }
+        }
+        for (Iterator i = attachedArtifacts.iterator(); i.hasNext(); ) {
+            Artifact attached = (Artifact) i.next();
+            try {
+                deploy(attached.getFile(), attached, repo, getLocalRepository());
+            } catch (ArtifactDeploymentException e) {
+                if (!failureIsAnOption) throw new MojoExecutionException("Failed to deploy artifact", e);
+                swallowed++;
+                getLog().warn("failed to deploy " + attached.getId() + " but continuing anyway " +
                         "(failureIsAnOption)");
             }
         }
@@ -328,6 +335,8 @@ public class DeployMojo
 
     private File filterPom(Artifact thePomArtifact) throws MojoExecutionException {
         try {
+            getLog().debug("Filtering pom file: " + thePomArtifact.getId());
+
             // first build a project from the pom artifact
             MavenProject bareProject = mavenProjectBuilder.build(thePomArtifact, project.getProjectBuildingRequest()).getProject();
 
