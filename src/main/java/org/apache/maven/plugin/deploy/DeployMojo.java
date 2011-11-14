@@ -34,10 +34,8 @@ import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Writer;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectBuilder;
-import org.apache.maven.project.ProjectBuildingRequest;
 import org.codehaus.plexus.util.IOUtil;
 import org.codehaus.plexus.util.WriterFactory;
 
@@ -313,10 +311,7 @@ public class DeployMojo
     private File filterPom(Artifact thePomArtifact) throws MojoExecutionException {
         try {
             // first build a project from the pom artifact
-            ProjectBuildingRequest req = new DefaultProjectBuildingRequest();
-            req.setLocalRepository(this.local);
-            req.setRemoteRepositories(this.remoteRepos);
-            MavenProject bareProject = mavenProjectBuilder.build(thePomArtifact, req).getProject();
+            MavenProject bareProject = mavenProjectBuilder.build(thePomArtifact, project.getProjectBuildingRequest()).getProject();
 
             // get the model and start filtering useless stuff
             Model currentModel = bareProject.getModel();
