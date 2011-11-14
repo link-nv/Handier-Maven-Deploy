@@ -276,10 +276,11 @@ public class DeployMojo
                 } catch (ArtifactDeploymentException e) {
                     throw new MojoExecutionException("Failed to deploy artifact", e);
                 }
-            }
-            catch (MojoExecutionException e) {
+            } catch (MojoExecutionException e) {
                 if (!failureIsAnOption) throw e;
                 swallowed++;
+                getLog().warn("failed to deploy " + ((Artifact) iter).getId() + " but continuing anyway " +
+                        "(failureIsAnOption)");
             }
         }
         if (swallowed > 0) {
