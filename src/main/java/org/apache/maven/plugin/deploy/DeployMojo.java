@@ -33,6 +33,7 @@ import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.DefaultModelReader;
 import org.apache.maven.model.io.DefaultModelWriter;
+import org.apache.maven.model.io.ModelWriter;
 import org.apache.maven.model.io.xpp3.MavenXpp3Writer;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -241,8 +242,7 @@ public class DeployMojo
 
 
                 if (filterPom) {
-                    pomFile = filterPom(thePomArtifact);
-                    thePomArtifact.setFile(pomFile);
+                    filterPom(thePomArtifact);
                 }
                 pomFile = thePomArtifact.getFile();
 
@@ -343,7 +343,7 @@ public class DeployMojo
         return repo;
     }
 
-    private File filterPom(Artifact thePomArtifact) throws MojoExecutionException {
+    private void filterPom(Artifact thePomArtifact) throws MojoExecutionException {
         try {
             getLog().debug("Filtering pom file: " + thePomArtifact.getId());
 
@@ -351,7 +351,8 @@ public class DeployMojo
             // otherwise maven might refuse to parse those poms to projects
             Model brokenModel = (new DefaultModelReader()).read(thePomArtifact.getFile(), null);
             brokenModel.setDistributionManagement(null);
-            (new DefaultModelWriter()).write(thePomArtifact.getFile(), null, brokenModel);
+            ModelWriter modelWriter = new DefaultModelWriter();
+            modelWriter.write(thePomArtifact.getFile(), null, brokenModel);
 
 
             // first build a project from the pom artifact
@@ -395,20 +396,7 @@ public class DeployMojo
             currentModel.setProperties(null);
 
             // spit the merged model to the output file.
-            Writer fw = null;
-            try {
-                File tempFile = File.createTempFile("mvndeploy", ".pom");
-                tempFile.deleteOnExit();
-
-                fw = WriterFactory.newXmlWriter(tempFile);
-                new MavenXpp3Writer().write(fw, currentModel);
-
-                return tempFile;
-            } catch (IOException e) {
-                throw new MojoExecutionException("Error writing temporary pom file: " + e.getMessage(), e);
-            } finally {
-                IOUtil.close(fw);
-            }
+            modelWriter.write(thePomArtifact.getFile(), null, currentModel);
         } catch (Exception e) {
             throw new MojoExecutionException(e.getMessage(), e);
         }
