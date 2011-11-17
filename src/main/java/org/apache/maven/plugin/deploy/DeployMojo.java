@@ -351,6 +351,10 @@ public class DeployMojo
                 Model brokenModel = (new DefaultModelReader()).read(thePomArtifact.getFile(), null);
                 brokenModel.setDistributionManagement(null);
                 (new DefaultModelWriter()).write(thePomArtifact.getFile(), null, brokenModel);
+                //this is dirty. If we don't remove this file maven might refuse to parse our pom into
+                //a project.
+                File botherSomeFile = new File(thePomArtifact.getFile().getParent(),"_maven.repositories");
+                botherSomeFile.delete();
             }
 
             // first build a project from the pom artifact
