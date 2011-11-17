@@ -216,6 +216,7 @@ public class DeployMojo
 
         // create a selection of artifacts that need to be deployed
         if (deployDependencies) {
+            toBeDeployedArtifacts.clear();
             toBeDeployedArtifacts.addAll(project.getArtifacts());
         }
 
@@ -230,21 +231,22 @@ public class DeployMojo
                 Artifact thePomArtifact = new DefaultArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(),
                         artifactTBD.getVersion(), "", "pom", "", new PomArtifactHandler());
 
+                // we resolve the pom file first
                 HashSet<Artifact> deps = new HashSet<Artifact>();
                 deps.addAll(project.getDependencyArtifacts());
                 deps.add(thePomArtifact);
                 project.setDependencyArtifacts(deps);
-
                 Set<String> scopes = Collections.singleton(Artifact.SCOPE_RUNTIME);
                 lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, false, Collections.<Artifact>emptySet());
 
-                pomFile = thePomArtifact.getFile();
+
                 if (filterPom) {
                     pomFile = filterPom(thePomArtifact);
                     thePomArtifact.setFile(pomFile);
                 }
+                pomFile = thePomArtifact.getFile();
 
-                boolean isPomArtifact = "pom".equals(packaging);
+                boolean isPomArtifact = "pom".equals(artifactTBD.getType());
 
                 try {
                     if (isPomArtifact) {
@@ -347,18 +349,13 @@ public class DeployMojo
 
             // Try to remove the broken distributionmanagement element from downloaded poms
             // otherwise maven might refuse to parse those poms to projects
-            if (thePomArtifact.getFile() != null) {
-                Model brokenModel = (new DefaultModelReader()).read(thePomArtifact.getFile(), null);
-                brokenModel.setDistributionManagement(null);
-                (new DefaultModelWriter()).write(thePomArtifact.getFile(), null, brokenModel);
-                //this is dirty. If we don't remove this file maven might refuse to parse our pom into
-                //a project.
-                File botherSomeFile = new File(thePomArtifact.getFile().getParent(),"_maven.repositories");
-                botherSomeFile.delete();
-            }
+            Model brokenModel = (new DefaultModelReader()).read(thePomArtifact.getFile(), null);
+            brokenModel.setDistributionManagement(null);
+            (new DefaultModelWriter()).write(thePomArtifact.getFile(), null, brokenModel);
+
 
             // first build a project from the pom artifact
-            MavenProject bareProject = mavenProjectBuilder.build(thePomArtifact,
+            MavenProject bareProject = mavenProjectBuilder.build(thePomArtifact.getFile(),
                     project.getProjectBuildingRequest()).getProject();
 
             // get the model and start filtering useless stuff
