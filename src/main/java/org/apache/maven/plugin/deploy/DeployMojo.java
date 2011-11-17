@@ -31,6 +31,8 @@ import org.apache.maven.lifecycle.LifecycleExecutionException;
 import org.apache.maven.lifecycle.internal.LifecycleDependencyResolver;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
+import org.apache.maven.model.io.DefaultModelReader;
+import org.apache.maven.model.io.DefaultModelWriter;
 import org.apache.maven.model.io.xpp3.MavenXpp3Writer;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -227,6 +229,15 @@ public class DeployMojo
 
                 Artifact thePomArtifact = new DefaultArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(),
                         artifactTBD.getVersion(), "", "pom", "", new PomArtifactHandler());
+
+                HashSet<Artifact> deps = new HashSet<Artifact>();
+                deps.addAll(project.getDependencyArtifacts());
+                deps.add(thePomArtifact);
+                project.setDependencyArtifacts(deps);
+
+                Set<String> scopes = Collections.singleton(Artifact.SCOPE_RUNTIME);
+                lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, false, Collections.<Artifact>emptySet());
+
                 pomFile = thePomArtifact.getFile();
                 if (filterPom) {
                     pomFile = filterPom(thePomArtifact);
@@ -246,21 +257,15 @@ public class DeployMojo
                         } else if (!attachedArtifacts.isEmpty()) {
                             getLog().info("No primary artifact to deploy, deploying attached artifacts instead.");
 
-                            Artifact pomArtifact = new DefaultArtifact(artifactTBD.getGroupId(),
-                                    artifactTBD.getArtifactId(),
-                                    artifactTBD.getVersion(), "", "pom", "", new PomArtifactHandler());
-
-                            pomArtifact.setFile(pomFile);
-
                             if (updateReleaseInfo) {
-                                pomArtifact.setRelease(true);
+                                thePomArtifact.setRelease(true);
                             }
 
-                            deploy(pomFile, pomArtifact, repo, getLocalRepository());
+                            deploy(pomFile, thePomArtifact, repo, getLocalRepository());
 
                             // propagate the timestamped version to the main artifact for the attached artifacts
                             // to pick it up
-                            artifactTBD.setResolvedVersion(pomArtifact.getVersion());
+                            artifactTBD.setResolvedVersion(thePomArtifact.getVersion());
                         } else {
                             String message = "The packaging for this project did not " +
                                     "assign a file to the build artifact";
@@ -339,6 +344,14 @@ public class DeployMojo
     private File filterPom(Artifact thePomArtifact) throws MojoExecutionException {
         try {
             getLog().debug("Filtering pom file: " + thePomArtifact.getId());
+
+            // Try to remove the broken distributionmanagement element from downloaded poms
+            // otherwise maven might refuse to parse those poms to projects
+            if (thePomArtifact.getFile() != null) {
+                Model brokenModel = (new DefaultModelReader()).read(thePomArtifact.getFile(), null);
+                brokenModel.setDistributionManagement(null);
+                (new DefaultModelWriter()).write(thePomArtifact.getFile(), null, brokenModel);
+            }
 
             // first build a project from the pom artifact
             MavenProject bareProject = mavenProjectBuilder.build(thePomArtifact,
