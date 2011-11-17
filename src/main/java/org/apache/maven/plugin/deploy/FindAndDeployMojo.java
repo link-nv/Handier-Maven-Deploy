@@ -39,7 +39,7 @@ public class FindAndDeployMojo extends DeployMojo {
     private String version;
 
     /**
-     * @parameter expression="${type}"
+     * @parameter default-value="jar" expression="${type}"
      * @required
      */
     private String type;
