@@ -31,6 +31,7 @@ import org.apache.maven.lifecycle.LifecycleExecutionException;
 import org.apache.maven.lifecycle.internal.LifecycleDependencyResolver;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
+import org.apache.maven.model.Parent;
 import org.apache.maven.model.io.DefaultModelReader;
 import org.apache.maven.model.io.DefaultModelWriter;
 import org.apache.maven.model.io.ModelWriter;
@@ -353,6 +354,18 @@ public class DeployMojo
             brokenModel.setDistributionManagement(null);
             ModelWriter modelWriter = new DefaultModelWriter();
             modelWriter.write(thePomArtifact.getFile(), null, brokenModel);
+
+            //Download the parents of this pom
+            Set<String> scopes = Collections.singleton(Artifact.SCOPE_RUNTIME);
+            while (brokenModel.getParent() != null) {
+                Parent parent = brokenModel.getParent();
+                Artifact parentArtifact = new DefaultArtifact(parent.getGroupId(), parent.getArtifactId(),
+                        parent.getVersion(), "", "pom", "", new PomArtifactHandler());
+                project.setDependencyArtifacts(Collections.singleton(parentArtifact));
+                lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, false,
+                        Collections.<Artifact>emptySet());
+                brokenModel = (new DefaultModelReader()).read(parentArtifact.getFile(), null);
+            }
 
 
             // first build a project from the pom artifact
