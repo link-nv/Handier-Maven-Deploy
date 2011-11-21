@@ -32,14 +32,17 @@ import org.apache.maven.lifecycle.internal.LifecycleDependencyResolver;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Parent;
+import org.apache.maven.model.building.ModelSource;
 import org.apache.maven.model.io.DefaultModelReader;
 import org.apache.maven.model.io.DefaultModelWriter;
 import org.apache.maven.model.io.ModelWriter;
 import org.apache.maven.model.io.xpp3.MavenXpp3Writer;
+import org.apache.maven.model.merge.ModelMerger;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectBuilder;
+import org.apache.maven.project.ProjectBuildingRequest;
 import org.codehaus.plexus.util.IOUtil;
 import org.codehaus.plexus.util.WriterFactory;
 
@@ -345,15 +348,25 @@ public class DeployMojo
     }
 
     private void filterPom(Artifact thePomArtifact) throws MojoExecutionException {
-        try {
-            getLog().debug("Filtering pom file: " + thePomArtifact.getId());
 
+        getLog().debug("Filtering pom file: " + thePomArtifact.getId());
+
+        if (!thePomArtifact.getType().equals("pom")) {
+            getLog().debug("Ignoring filtering of a non-pom file");
+            throw new MojoExecutionException("Don't ask me to filter a non pom file");
+        }
+
+        try {
             // Try to remove the broken distributionmanagement element from downloaded poms
             // otherwise maven might refuse to parse those poms to projects
             Model brokenModel = (new DefaultModelReader()).read(thePomArtifact.getFile(), null);
             brokenModel.setDistributionManagement(null);
+            brokenModel.setPackaging(null);
             ModelWriter modelWriter = new DefaultModelWriter();
+            getLog().debug("Overwriting pom file to remove distributionmanagement: " +
+                    thePomArtifact.getFile().getAbsolutePath());
             modelWriter.write(thePomArtifact.getFile(), null, brokenModel);
+            removeNaughtyFile(thePomArtifact);
 
             //Download the parents of this pom
             Set<String> scopes = Collections.singleton(Artifact.SCOPE_RUNTIME);
@@ -364,9 +377,10 @@ public class DeployMojo
                 project.setDependencyArtifacts(Collections.singleton(parentArtifact));
                 lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, false,
                         Collections.<Artifact>emptySet());
-                brokenModel = (new DefaultModelReader()).read(parentArtifact.getFile(), null);
-            }
 
+                brokenModel = (new DefaultModelReader()).read(parentArtifact.getFile(), null);
+                removeNaughtyFile(parentArtifact);
+            }
 
             // first build a project from the pom artifact
             MavenProject bareProject = mavenProjectBuilder.build(thePomArtifact.getFile(),
@@ -409,12 +423,18 @@ public class DeployMojo
             currentModel.setProperties(null);
 
             // spit the merged model to the output file.
+            getLog().debug("Overwriting pom file with filtered pom: " + thePomArtifact.getFile().getAbsolutePath());
             modelWriter.write(thePomArtifact.getFile(), null, currentModel);
         } catch (Exception e) {
             throw new MojoExecutionException(e.getMessage(), e);
         }
 
 
+    }
+
+    private void removeNaughtyFile(Artifact artifact) {
+        File naughtyFile = new File(artifact.getFile().getParentFile(),"_maven.repositories");
+        naughtyFile.delete();
     }
 
     static class PomArtifactHandler
