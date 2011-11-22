@@ -7,6 +7,10 @@ import org.apache.maven.artifact.versioning.VersionRange;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -22,26 +26,28 @@ public class FindAndDeployMojo extends DeployMojo {
 
     /**
      * @parameter expression="${groupId}"
-     * @required
      */
-    private String groupId;
+    private String groupId = null;
 
     /**
      * @parameter expression="${artifactId}"
-     * @required
      */
-    private String artifactId;
+    private String artifactId = null;
 
     /**
      * @parameter expression="${version}"
-     * @required
      */
-    private String version;
+    private String version = null;
 
     /**
      * @parameter default-value="jar" expression="${type}"
      */
-    private String type;
+    private String type = "jar";
+
+    /**
+     * @parameter default-value="" expression="${classifier}"
+     */
+    private String classifier = "";
 
     /**
      * artifact handling
@@ -52,10 +58,11 @@ public class FindAndDeployMojo extends DeployMojo {
 
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
+            fillInBlanks();
 
             VersionRange vrange = VersionRange.createFromVersionSpec(version);
             Artifact target = new DefaultArtifact(groupId, artifactId, vrange, Artifact.SCOPE_RUNTIME,
-                    type, "", handler);
+                    type, classifier, handler);
 
             Set deps = project.getDependencyArtifacts();
             deps.add(target);
@@ -70,6 +77,38 @@ public class FindAndDeployMojo extends DeployMojo {
 
         } catch (Exception e) {
             throw new MojoExecutionException(e.getMessage(), e);
+        }
+    }
+
+    private void fillInBlanks() throws IOException {
+        if (version == null || artifactId == null || groupId == null) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+
+            String suggestion = "";
+            if (groupId != null) suggestion = "[" + groupId +"]";
+            System.out.print("groupId? " + suggestion + " > ");
+            String input = reader.readLine().trim();
+            if (!input.isEmpty()) groupId = input;
+
+            if (artifactId != null) suggestion = "[" + artifactId +"]";
+            System.out.print("artifactId? " + suggestion + " > ");
+            input = reader.readLine().trim();
+            if (!input.isEmpty()) artifactId = input;
+
+            if (version != null) suggestion = "[" + version +"]";
+            System.out.print("version? " + suggestion + " > ");
+            input = reader.readLine().trim();
+            if (!input.isEmpty()) version = input;
+
+            suggestion = "[" + type +"]";
+            System.out.print("type? " + suggestion + " > ");
+            input = reader.readLine().trim();
+            if (!input.isEmpty()) type = input;
+
+            suggestion = "[" + classifier +"]";
+            System.out.print("classifier? " + suggestion + " > ");
+            input = reader.readLine().trim();
+            if (!input.isEmpty()) classifier = input;
         }
     }
 }
