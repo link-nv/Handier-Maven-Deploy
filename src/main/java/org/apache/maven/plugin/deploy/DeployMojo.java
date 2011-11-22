@@ -365,8 +365,10 @@ public class DeployMojo
             ModelWriter modelWriter = new DefaultModelWriter();
             getLog().debug("Overwriting pom file to remove distributionmanagement: " +
                     thePomArtifact.getFile().getAbsolutePath());
-            modelWriter.write(thePomArtifact.getFile(), null, brokenModel);
-            removeNaughtyFile(thePomArtifact);
+            //we write the new pom file to a temp file as to not interfere with 'official' pom files in the repo
+            File tempFile = File.createTempFile("deploy-plugin","pom");
+            modelWriter.write(tempFile, null, brokenModel);
+            thePomArtifact.setFile(tempFile);
 
             //Download the parents of this pom
             Set<String> scopes = Collections.singleton(Artifact.SCOPE_RUNTIME);
@@ -374,12 +376,16 @@ public class DeployMojo
                 Parent parent = brokenModel.getParent();
                 Artifact parentArtifact = new DefaultArtifact(parent.getGroupId(), parent.getArtifactId(),
                         parent.getVersion(), "", "pom", "", new PomArtifactHandler());
+                //project.getDependencyArtifacts().add(parentArtifact);
                 project.setDependencyArtifacts(Collections.singleton(parentArtifact));
                 lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, false,
                         Collections.<Artifact>emptySet());
 
                 brokenModel = (new DefaultModelReader()).read(parentArtifact.getFile(), null);
-                removeNaughtyFile(parentArtifact);
+                //we write these unmodified pom files to temp files to dodge maven's broken dependency resolution
+                File tempFile2 = File.createTempFile("deploy-plugin","pom");
+                modelWriter.write(tempFile, null, brokenModel);
+                parentArtifact.setFile(tempFile2);
             }
 
             // first build a project from the pom artifact
@@ -430,11 +436,6 @@ public class DeployMojo
         }
 
 
-    }
-
-    private void removeNaughtyFile(Artifact artifact) {
-        File naughtyFile = new File(artifact.getFile().getParentFile(),"_maven.repositories");
-        naughtyFile.delete();
     }
 
     static class PomArtifactHandler
