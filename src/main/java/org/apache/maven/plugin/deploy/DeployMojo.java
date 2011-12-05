@@ -222,6 +222,7 @@ public class DeployMojo
         // create a selection of artifacts that need to be deployed
         if (deployDependencies) {
             toBeDeployedArtifacts.clear();
+            toBeDeployedArtifacts.add(project.getArtifact());
             toBeDeployedArtifacts.addAll(project.getArtifacts());
         }
 
