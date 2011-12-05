@@ -371,24 +371,6 @@ public class DeployMojo
             modelWriter.write(tempFile, null, brokenModel);
             thePomArtifact.setFile(tempFile);
 
-            //Download the parents of this pom
-            Set<String> scopes = Collections.singleton(Artifact.SCOPE_RUNTIME);
-            while (brokenModel.getParent() != null) {
-                Parent parent = brokenModel.getParent();
-                Artifact parentArtifact = new DefaultArtifact(parent.getGroupId(), parent.getArtifactId(),
-                        parent.getVersion(), "", "pom", "", new PomArtifactHandler());
-                //project.getDependencyArtifacts().add(parentArtifact);
-                project.setDependencyArtifacts(Collections.singleton(parentArtifact));
-                lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, false,
-                        Collections.<Artifact>emptySet());
-
-                brokenModel = (new DefaultModelReader()).read(parentArtifact.getFile(), null);
-                //we write these unmodified pom files to temp files to dodge maven's broken dependency resolution
-                File tempFile2 = File.createTempFile("deploy-plugin","pom");
-                modelWriter.write(tempFile, null, brokenModel);
-                parentArtifact.setFile(tempFile2);
-            }
-
             // first build a project from the pom artifact
             MavenProject bareProject = mavenProjectBuilder.build(thePomArtifact.getFile(),
                     project.getProjectBuildingRequest()).getProject();
