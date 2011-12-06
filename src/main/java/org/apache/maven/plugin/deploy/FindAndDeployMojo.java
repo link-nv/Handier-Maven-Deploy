@@ -14,6 +14,7 @@ import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.StringTokenizer;
 
 /**
  * Find an artifact in a repo and deploys it
@@ -50,6 +51,11 @@ public class FindAndDeployMojo extends DeployMojo {
     private String classifier = "";
 
     /**
+     * @parameter default-value="" expression="${id}"
+     */
+    private String id = "";
+
+    /**
      * artifact handling
      *
      * @component
@@ -64,8 +70,6 @@ public class FindAndDeployMojo extends DeployMojo {
             Artifact target = new DefaultArtifact(groupId, artifactId, vrange, Artifact.SCOPE_RUNTIME,
                     type, classifier, handler);
 
-            Set deps = project.getDependencyArtifacts();
-            deps.add(target);
             project.setDependencyArtifacts(Collections.singleton(target));
 
             Set<String> scopes = Collections.singleton(Artifact.SCOPE_RUNTIME);
@@ -81,31 +85,43 @@ public class FindAndDeployMojo extends DeployMojo {
     }
 
     private void fillInBlanks() throws IOException {
-        if (version == null || artifactId == null || groupId == null) {
+        if (id != null && !id.isEmpty()) {
+            StringTokenizer tokenizer = new StringTokenizer(id, ":");
+            int tokens = tokenizer.countTokens();
+            groupId = tokenizer.nextToken();
+            artifactId = tokenizer.nextToken();
+            if (tokens > 3) {
+                type = tokenizer.nextToken();
+            }
+            if (tokens == 5) {
+                classifier = tokenizer.nextToken();
+            }
+            version = tokenizer.nextToken();
+        } else if (version == null || artifactId == null || groupId == null) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
 
             String suggestion = "";
-            if (groupId != null) suggestion = "[" + groupId +"]";
+            if (groupId != null) suggestion = "[" + groupId + "]";
             System.out.print("groupId? " + suggestion + " > ");
             String input = reader.readLine().trim();
             if (!input.isEmpty()) groupId = input;
 
-            if (artifactId != null) suggestion = "[" + artifactId +"]";
+            if (artifactId != null) suggestion = "[" + artifactId + "]";
             System.out.print("artifactId? " + suggestion + " > ");
             input = reader.readLine().trim();
             if (!input.isEmpty()) artifactId = input;
 
-            if (version != null) suggestion = "[" + version +"]";
+            if (version != null) suggestion = "[" + version + "]";
             System.out.print("version? " + suggestion + " > ");
             input = reader.readLine().trim();
             if (!input.isEmpty()) version = input;
 
-            suggestion = "[" + type +"]";
+            suggestion = "[" + type + "]";
             System.out.print("type? " + suggestion + " > ");
             input = reader.readLine().trim();
             if (!input.isEmpty()) type = input;
 
-            suggestion = "[" + classifier +"]";
+            suggestion = "[" + classifier + "]";
             System.out.print("classifier? " + suggestion + " > ");
             input = reader.readLine().trim();
             if (!input.isEmpty()) classifier = input;
