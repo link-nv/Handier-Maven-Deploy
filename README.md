@@ -48,12 +48,12 @@ This feature can be used to enforce a policy.
 
 Configuration looks like this:
 
-   <configuration>
+    <configuration>
       <blackListPatterns>
          <blackListPattern>mycompany.secret.*</blackListPattern>
          <blackListPattern>.*SNAPSHOT</blackListPattern>
       </blackListPatterns>
-   </configuration>
+    </configuration>
 
 Using the plugin
 ----------------
