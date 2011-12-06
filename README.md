@@ -30,12 +30,13 @@ This new mojo reads an artifactId, groupId and version from the commandline and 
 This mojo is useful to import artifacts in your own repository without using a repository manager.
 
 options of this mojo are:
-* groupId
-* artifactId
-* type
-* version
-* classifier
-* id (this one overrides all the previous ones by parsing an artifact id string groupId:artifactId:(type):(classifier):version ) 
+
+*    groupId
+*    artifactId
+*    type
+*    version
+*    classifier
+*    id (this one overrides all the previous ones by parsing an artifact id string groupId:artifactId:(type):(classifier):version ) 
 
 Using the plugin
 ----------------
