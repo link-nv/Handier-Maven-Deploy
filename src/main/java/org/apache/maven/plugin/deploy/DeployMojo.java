@@ -372,6 +372,10 @@ public class DeployMojo
             // otherwise maven might refuse to parse those poms to projects
             Model brokenModel = (new DefaultModelReader()).read(thePomArtifact.getFile(), null);
             brokenModel.setDistributionManagement(null);
+            // set aside the packaging. We will restore it later to prevent maven from choking on
+            // exotic packaging types
+            String theRealPackaging = brokenModel.getPackaging();
+            brokenModel.setPackaging(null);
             ModelWriter modelWriter = new DefaultModelWriter();
             getLog().debug("Overwriting pom file to remove distributionmanagement: " +
                     thePomArtifact.getFile().getAbsolutePath());
@@ -387,6 +391,7 @@ public class DeployMojo
             // get the model and start filtering useless stuff
             Model currentModel = bareProject.getModel();
 
+            currentModel.setPackaging(theRealPackaging);
             currentModel.setParent(null);
             currentModel.setBuild(null);
             currentModel.setCiManagement(null);
