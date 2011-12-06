@@ -234,17 +234,22 @@ public class DeployMojo
 
                 getLog().debug("Deploying artifact: " + artifactTBD.getId());
 
-                Artifact thePomArtifact = new DefaultArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(),
-                        artifactTBD.getVersion(), "", "pom", "", new PomArtifactHandler());
+                Artifact thePomArtifact;
 
-                // we resolve the pom file first
-                HashSet<Artifact> deps = new HashSet<Artifact>();
-                deps.addAll(project.getDependencyArtifacts());
-                deps.add(thePomArtifact);
-                project.setDependencyArtifacts(deps);
-                Set<String> scopes = Collections.singleton(Artifact.SCOPE_RUNTIME);
-                lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, false, Collections.<Artifact>emptySet());
+                if (artifactTBD.getType().equals("pom")) {
+                    thePomArtifact = artifactTBD;
+                } else {
+                    thePomArtifact = new DefaultArtifact(artifactTBD.getGroupId(), artifactTBD.getArtifactId(),
+                            artifactTBD.getVersion(), "", "pom", "", new PomArtifactHandler());
 
+                    // we resolve the pom file first
+                    HashSet<Artifact> deps = new HashSet<Artifact>();
+                    deps.addAll(project.getDependencyArtifacts());
+                    deps.add(thePomArtifact);
+                    project.setDependencyArtifacts(deps);
+                    Set<String> scopes = Collections.singleton(Artifact.SCOPE_RUNTIME);
+                    lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, false, Collections.<Artifact>emptySet());
+                }
 
                 if (filterPom) {
                     filterPom(thePomArtifact);
@@ -367,7 +372,7 @@ public class DeployMojo
             getLog().debug("Overwriting pom file to remove distributionmanagement: " +
                     thePomArtifact.getFile().getAbsolutePath());
             //we write the new pom file to a temp file as to not interfere with 'official' pom files in the repo
-            File tempFile = File.createTempFile("deploy-plugin","pom");
+            File tempFile = File.createTempFile("deploy-plugin", "pom");
             modelWriter.write(tempFile, null, brokenModel);
             thePomArtifact.setFile(tempFile);
 
