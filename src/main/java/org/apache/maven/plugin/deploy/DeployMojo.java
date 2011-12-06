@@ -234,6 +234,11 @@ public class DeployMojo
 
                 getLog().debug("Deploying artifact: " + artifactTBD.getId());
 
+                if (artifactTBD.getFile() == null) {
+                    getLog().debug("Skipping deployment of " + artifactTBD.getId());
+                    continue;
+                }
+
                 Artifact thePomArtifact;
 
                 if (artifactTBD.getType().equals("pom")) {
@@ -367,7 +372,6 @@ public class DeployMojo
             // otherwise maven might refuse to parse those poms to projects
             Model brokenModel = (new DefaultModelReader()).read(thePomArtifact.getFile(), null);
             brokenModel.setDistributionManagement(null);
-            brokenModel.setPackaging(null);
             ModelWriter modelWriter = new DefaultModelWriter();
             getLog().debug("Overwriting pom file to remove distributionmanagement: " +
                     thePomArtifact.getFile().getAbsolutePath());
