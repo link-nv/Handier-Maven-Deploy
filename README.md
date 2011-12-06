@@ -38,6 +38,23 @@ options of this mojo are:
 *    classifier
 *    id (this one overrides all the previous ones by parsing an artifact id string groupId:artifactId:(type):(classifier):version ) 
 
+New feature: white and black listing
+------------------------------------
+In the plugin configuration a black list of regular expressions can be given. If an artifact matches an expression in the black list it will not be deployed. The expressions are matched against the artifact id string: groupid:artifactid:type:classifier:version
+
+Similary a white list of regular expressions can be given. If an artifact does not match an expression in the white list it will not be deployed.
+
+This feature can be used to enforce a policy.
+
+Configuration looks like this:
+
+   <configuration>
+      <blackListPatterns>
+         <blackListPattern>mycompany.secret.*</blackListPattern>
+         <blackListPattern>.*SNAPSHOT</blackListPattern>
+      </blackListPatterns>
+   </configuration>
+
 Using the plugin
 ----------------
 Configure this as one of your repositories:

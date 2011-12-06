@@ -187,6 +187,20 @@ public class DeployMojo
      */
     protected ProjectBuilder mavenProjectBuilder;
 
+    /**
+     * @parameter
+     */
+    private List<String> blackListPatterns;
+
+    private List<Pattern> theBlackListPatterns = new LinkedList<Pattern>();
+
+    /**
+     * @parameter
+     */
+    private List<String> whiteListPatterns;
+
+    private List<Pattern> theWhiteListPatterns = new LinkedList<Pattern>();
+
     public void execute() throws MojoExecutionException, MojoFailureException {
         Set<Artifact> toBeDeployedArtifacts = new HashSet<Artifact>();
         toBeDeployedArtifacts.add(project.getArtifact());
@@ -206,6 +220,8 @@ public class DeployMojo
         }
 
         failIfOffline();
+
+        populatePatterns();
 
         ArtifactRepository repo = getDeploymentRepository();
 
@@ -230,7 +246,13 @@ public class DeployMojo
 
         for (Object iter : toBeDeployedArtifacts) {
             try {
+
                 Artifact artifactTBD = (Artifact) iter;
+
+                if (!isAuthorized(artifactTBD)) {
+                    getLog().debug("Skipping artifact: " + artifactTBD.getId());
+                    continue;
+                }
 
                 getLog().debug("Deploying artifact: " + artifactTBD.getId());
 
@@ -433,6 +455,38 @@ public class DeployMojo
         }
 
 
+    }
+
+    private void populatePatterns() {
+        if (blackListPatterns != null) {
+            for (String blackList : blackListPatterns) {
+                getLog().debug("Adding black list pattern: " + blackList);
+                theBlackListPatterns.add(Pattern.compile(blackList));
+            }
+        }
+        if (whiteListPatterns != null) {
+            for (String whiteList : whiteListPatterns) {
+                getLog().debug("Adding white list pattern: " + whiteList);
+                theWhiteListPatterns.add(Pattern.compile(whiteList));
+            }
+        }
+    }
+
+    private boolean isAuthorized(Artifact artifact) {
+        String target = artifact.getId();
+        for (Pattern black: theBlackListPatterns) {
+            if (black.matcher(target).matches()) {
+                getLog().debug(target + " matches blacklist pattern " + black.toString());
+                return false;
+            }
+        }
+        for (Pattern white: theWhiteListPatterns) {
+            if (!white.matcher(target).matches()) {
+                getLog().debug(target + " not matches whitelist pattern " + white.toString());
+                return false;
+            }
+        }
+        return true;
     }
 
     static class PomArtifactHandler
