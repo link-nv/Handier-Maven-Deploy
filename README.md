@@ -59,10 +59,12 @@ Using the plugin
 ----------------
 Configure this as one of your repositories:
 
-    <repository>
-        <id>handier.deploy</id>
-        <url>https://raw.github.com/link-nv/Handier-Maven-Deploy/master/repository</url>
-    </repository>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>maven-deploy</id>
+            <url>https://raw.github.com/link-nv/Handier-Maven-Deploy/master/repository</url>
+        </pluginRepository>
+    </pluginRepositories>
 
 And add this to your plugins:
 
