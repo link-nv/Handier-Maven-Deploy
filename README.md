@@ -62,7 +62,7 @@ Configure this as one of your repositories:
     <pluginRepositories>
         <pluginRepository>
             <id>maven-deploy</id>
-            <url>https://raw.github.com/link-nv/Handier-Maven-Deploy/master/repository</url>
+            <url>https://raw.github.com/link-nv/maven-repository/master/repository</url>
         </pluginRepository>
     </pluginRepositories>
 
