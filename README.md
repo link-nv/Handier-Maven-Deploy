@@ -70,7 +70,7 @@ And add this to your plugins:
 
     <plugin>
         <artifactId>maven-deploy-plugin</artifactId>
-        <version>2.7-4l</version>
+        <version>2.7-5l</version>
     </plugin>
 
 
