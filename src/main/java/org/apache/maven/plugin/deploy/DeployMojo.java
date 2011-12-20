@@ -278,7 +278,25 @@ public class DeployMojo
                     lcdResolver.resolveProjectDependencies(project, scopes, scopes, session, false, Collections.<Artifact>emptySet());
                 }
 
-                if (filterPom) {
+                // sometimes maven doesn't resolve a pom artifact
+                // don't know why, but it only happens on release artifacts
+                // we'll try it ourselves here
+                if (thePomArtifact.getFile() == null) {
+                    String path = artifactTBD.getFile().getAbsolutePath();
+                    int extensionStart;
+                    if (artifactTBD.getClassifier() == null || artifactTBD.getClassifier().isEmpty()) {
+                        extensionStart = path.lastIndexOf(".");
+                    }
+                    else {
+                        extensionStart = path.lastIndexOf("-");
+                    }
+                    String pathMinusExtension = path.substring(0,extensionStart);
+                    String pomFilePath = pathMinusExtension + ".pom";
+                    thePomArtifact.setFile(new File(pomFilePath));
+                    thePomArtifact.setResolved(true);
+                }
+                
+                if (filterPom) {                    
                     filterPom(thePomArtifact);
                 }
                 pomFile = thePomArtifact.getFile();
