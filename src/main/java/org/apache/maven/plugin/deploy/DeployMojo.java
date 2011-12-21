@@ -416,6 +416,10 @@ public class DeployMojo
             // exotic packaging types
             String theRealPackaging = brokenModel.getPackaging();
             brokenModel.setPackaging(null);
+
+            // also remove the module section so we don't fail on aggregator projects
+            brokenModel.setModules(null);
+
             ModelWriter modelWriter = new DefaultModelWriter();
             getLog().debug("Overwriting pom file to remove distributionmanagement: " +
                     thePomArtifact.getFile().getAbsolutePath());
