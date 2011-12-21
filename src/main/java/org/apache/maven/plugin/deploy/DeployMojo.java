@@ -250,9 +250,12 @@ public class DeployMojo extends AbstractDeployMojo {
 
                 getLog().debug( "Deploying artifact: " + artifactTBD.getId() );
 
-                if (artifactTBD.getFile() == null) {
+                if (artifactTBD.getFile() == null && !artifactTBD.getType().equals( "pom" )) {
                     getLog().debug( "Skipping deployment of " + artifactTBD.getId() );
                     continue;
+                } else if (artifactTBD.getFile() == null) {
+                    // pom artifact
+                    artifactTBD.setFile( pomFile );
                 }
 
                 Artifact thePomArtifact;
